@@ -58,7 +58,7 @@ class Pupil:
 
 class Tracker:
     #load in models for tracking etc.
-    def __init__(self, pupilModel="PuRe", faceModelPath='data/haarcascades/haarcascade_frontalface_default.xml', eyeModelPath='data/haarcascades/haarcascade_eye.xml'):
+    def __init__(self, pupilModel="Starburst", faceModelPath='data/haarcascades/haarcascade_frontalface_default.xml', eyeModelPath='data/haarcascades/haarcascade_eye.xml'):
         #TODO try/catch here to prevent runtime errors further on?
         self.faceModel = cv2.CascadeClassifier(faceModelPath)
         self.eyeModel = cv2.CascadeClassifier(eyeModelPath)
@@ -68,6 +68,18 @@ class Tracker:
         #     detector_params.maxArea = 1500
         #     self.pupilModel = cv2.SimpleBlobDetector_create(detector_params)
         match pupilModel:
+            case "ElSe":
+                self.pupilModel = pp.ElSe()
+            case "ExCuSe":
+                self.pupilModel = pp.ExCuSe()
+            case "PuRe":
+                self.pupilModel = pp.PuRe()
+            case "PuReST":
+                self.pupilModel = pp.PuReST()
+            case "Starburst":
+                self.pupilModel = pp.Starburst()
+            case "Swirski2D":
+                self.pupilModel = pp.Swirski2D()
             case _:
                 self.pupilModel = pp.PuRe()
 
@@ -290,12 +302,18 @@ class Tracker:
     def find_pupil(self, cv2Image):
         # https://github.com/openPupil/PyPupilEXT
         pupil = self.pupilModel.run(cv2Image)
-        #need location & diameter
-        # plotted = cv2.ellipse(cv2Image,
-        #                (int(pupil.center[0]), int(pupil.center[1])),
-        #                (int(pupil.minorAxis()/2), int(pupil.majorAxis()/2)), pupil.angle,
-        #                0, 360, (0, 0, 255), 1)
-        
+        models = [pp.ElSe(), pp.ExCuSe(), pp.PuRe(), pp.PuReST(), pp.Starburst(), pp.Swirski2D()]
+        for model in models:
+            pupil = model.run(cv2Image)
+            print(f"{str(model.__class__).split(['.'][-1])} | {pupil.center}, {pupil.majorAxis()}")
+            #need location & diameter
+            imgCpy = cv2.cvtColor(cv2Image, cv2.COLOR_GRAY2RGB)
+            plotted = cv2.ellipse(imgCpy,
+                        (int(pupil.center[0]), int(pupil.center[1])),
+                        (int(pupil.minorAxis()/2), int(pupil.majorAxis()/2)), pupil.angle,
+                        0, 360, (0, 0, 255), 1)
+            cv2.imshow("plotted", plotted)
+            cv2.waitKey(0)
 
 
 def main():
