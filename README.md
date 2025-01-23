@@ -52,7 +52,6 @@ wget https://github.com/openPupil/PyPupilEXT/releases/download/v0.0.1-beta/PyPup
 '''
 
 
-
 # SETTING UP THE OS V2: UBUNTU / GENERIC
 using the latest release of ubuntu desktop
 '''
@@ -88,7 +87,7 @@ wget https://github.com/openPupil/PyPupilEXT/releases/download/v0.0.1-beta/PyPup
 pip install PyPupilEXT-0.0.1-cp310-cp310-linux_x86_64.whl
 
 sudo mkdir app
-
+git clone https://github.com/oldhorizons/counterpilot_pupil_tracking app
 
 
 

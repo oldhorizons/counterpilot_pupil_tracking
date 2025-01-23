@@ -1,8 +1,9 @@
 import numpy as np
 import cv2
+import pypupilext as pp
 import matplotlib.pyplot as plt
 import os
-import skimage.exposure as exposure
+# import skimage.exposure as exposure
 # import dlib
 
 class Pupil:
@@ -56,17 +57,21 @@ class Pupil:
         return self.dHist
 
 class Tracker:
-    def __init__(self, pupilModelPath=None, faceModelPath='data/haarcascades/haarcascade_frontalface_default.xml', eyeModelPath='data/haarcascades/haarcascade_eye.xml'):
+    #load in models for tracking etc.
+    def __init__(self, pupilModel="PuRe", faceModelPath='data/haarcascades/haarcascade_frontalface_default.xml', eyeModelPath='data/haarcascades/haarcascade_eye.xml'):
         #TODO try/catch here to prevent runtime errors further on?
         self.faceModel = cv2.CascadeClassifier(faceModelPath)
         self.eyeModel = cv2.CascadeClassifier(eyeModelPath)
-        if pupilModelPath == None:
-            detector_params = cv2.SimpleBlobDetector_Params()
-            detector_params.filterByArea = True
-            detector_params.maxArea = 1500
-            self.pupilModel = cv2.SimpleBlobDetector_create(detector_params)
-        self.pupilModel = pupilModelPath #TODO change this
+        # if pupilModelPath == None:
+        #     detector_params = cv2.SimpleBlobDetector_Params()
+        #     detector_params.filterByArea = True
+        #     detector_params.maxArea = 1500
+        #     self.pupilModel = cv2.SimpleBlobDetector_create(detector_params)
+        match pupilModel:
+            case _:
+                self.pupilModel = pp.PuRe()
 
+    #find face in image using OpenCV haar cascade model and returns the cropped image
     def find_face(self, cv2Image):
         faces = self.faceModel.detectMultiScale(cv2Image, 1.3, 5)
         if len(faces) == 0:
@@ -88,12 +93,8 @@ class Tracker:
         #             (x + w+10 , y + h+20),
         #             (0,165,255),2)
         return cv2Image[y:y+h, x:x+w]
-    
-    def chunks(lst, n):
-        """Yield successive n-sized chunks from lst."""
-        for i in range(0, len(lst), n):
-            yield lst[i:i + n]
 
+    #preprocessing for 'quick and dirty' pupil detection
     def preprocess(self, cv2Image, method):
         match method:
         #gaussian blur
@@ -156,73 +157,11 @@ class Tracker:
                     print(f"BAD METHOD: {method}")
                 return cv2Image.copy()
         #rescale image for use in further processing steps
-        img = exposure.rescale_intensity(img, in_range='image', out_range=(0,255)).astype(np.uint8)
+        img = cv2.normalize(img, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX)
+        # img = exposure.rescale_intensity(img, in_range='image', out_range=(0,255)).astype(np.uint8)
         return img
 
-    def oldPreprocess(self, cv2Image): #TODO DELETE THIS WHEN I'M HAPPY WITH PREPROCESS
-        #no doctoring
-        pre = [cv2Image.copy()]
-        preLabels = ["none"]
-        #gaussian blur
-        img_blur = cv2.GaussianBlur(cv2Image, (3, 3), sigmaX=0, sigmaY=0)
-        pre.append(img_blur.copy())
-        preLabels.append("blur")
-        #binarizing / thresholding
-        _, lowThresh = cv2.threshold(cv2Image, 45, 255, cv2.THRESH_BINARY)
-        _, midThresh = cv2.threshold(img_blur, 127, 255, 0)
-        _, highThresh = cv2.threshold(img_blur, 200, 255, cv2.THRESH_BINARY)
-        pre += [lowThresh.copy(), midThresh.copy(), highThresh.copy()]
-        preLabels += ['lowThresh', 'midThresh', 'highThresh']
-        # erosion
-        binr = cv2.threshold(cv2Image, 0, 255, cv2.THRESH_BINARY+cv2.THRESH_OTSU)[1] 
-        kernel = np.ones((5, 5), np.uint8) 
-        invert = cv2.bitwise_not(binr) 
-        erosion = cv2.erode(invert, kernel, 
-                            iterations=1) 
-        pre.append(erosion)
-        preLabels.append("erosion")
-        # dilation
-        kernel = np.ones((3, 3), np.uint8) 
-        invert = cv2.bitwise_not(binr) 
-        dilation = cv2.dilate(invert, kernel, iterations=1) 
-        pre.append(dilation)
-        preLabels.append("dilation")
-        # opening
-        kernel = np.ones((3, 3), np.uint8) 
-        opening = cv2.morphologyEx(binr, cv2.MORPH_OPEN, kernel, iterations=1) 
-        pre.append(opening)
-        preLabels.append("opening")
-        # closing
-        kernel = np.ones((3, 3), np.uint8) 
-        closing = cv2.morphologyEx(binr, cv2.MORPH_CLOSE, kernel, iterations=1) 
-        pre.append(closing)
-        preLabels.append("closing")
-        # morphological gradient
-        kernel = np.ones((3, 3), np.uint8) 
-        invert = cv2.bitwise_not(binr) 
-        morph_gradient = cv2.morphologyEx(invert, cv2.MORPH_GRADIENT,  kernel) 
-        pre.append(morph_gradient)
-        preLabels.append("morph_gradient")
-        # black hat
-        kernel = np.ones((5, 5), np.uint8) 
-        invert = cv2.bitwise_not(binr) 
-        black_hat = cv2.morphologyEx(invert, cv2.MORPH_BLACKHAT, kernel) 
-        pre.append(black_hat)
-        preLabels.append("black_hat")
-        # tophat
-        kernel = np.ones((13, 13), np.uint8) 
-        top_hat = cv2.morphologyEx(invert, cv2.MORPH_TOPHAT, kernel) 
-        pre.append(top_hat)
-        preLabels.append("top_hat")
-        # Edge Detection
-        sobelx = cv2.Sobel(src=img_blur, ddepth=cv2.CV_64F, dx=1, dy=0, ksize=5) # Sobel Edge Detection on the X axis
-        sobely = cv2.Sobel(src=img_blur, ddepth=cv2.CV_64F, dx=0, dy=1, ksize=5) # Sobel Edge Detection on the Y axis
-        sobelxy = cv2.Sobel(src=img_blur, ddepth=cv2.CV_64F, dx=1, dy=1, ksize=5) # Combined X and Y Sobel Edge Detection
-        canny = cv2.Canny(image=img_blur, threshold1=100, threshold2=200) 
-        pre += [sobelx.copy(), sobely.copy(), sobelxy.copy(), canny.copy()]
-        preLabels += ['sobelx', 'sobely', 'sobelxy', 'canny']
-        return pre, preLabels
-
+    #master preprocessing for 'quick and dirty' pupil detection
     def get_preprocessed_list(self, cv2Image):
         methods = ["none", "blur", "threshLow", "threshMid", "threshHigh", "erosion", "dilation", "opening", "closing", "morphGradient", "blackHat", "topHat", "sobelx", "xobely", "sobelxy", "canny", "laplacian"]
         methodLabels = []
@@ -236,8 +175,9 @@ class Tracker:
             #     methodOutputs.append(out)
             #     methodLabels.append(f"{method1}>{method2}")
         return methodOutputs, methodLabels
-        
-    def find_pupil(self, cv2Image):
+    
+    #tester function for 'quick and dirty' pupil detection
+    def find_pupil_dirty(self, cv2Image):
         #TODO automatically determine threshold and track threshold between dudes. If lighting changes over the course of the show this will not work. Might be able to assume size and shape and dynamically determine threshold from that??
         pre, preLabels = self.get_preprocessed_list(cv2Image)
         post = []
@@ -345,6 +285,18 @@ class Tracker:
         # pysource eye motion tracking opencv with python
         # medium also does it
         #TODO check how stable the eye tracker is OR find eye edges (ideally both)
+    
+    #PyPupilEXT pupil finder
+    def find_pupil(self, cv2Image):
+        # https://github.com/openPupil/PyPupilEXT
+        pupil = self.pupilModel.run(cv2Image)
+        #need location & diameter
+        # plotted = cv2.ellipse(cv2Image,
+        #                (int(pupil.center[0]), int(pupil.center[1])),
+        #                (int(pupil.minorAxis()/2), int(pupil.majorAxis()/2)), pupil.angle,
+        #                0, 360, (0, 0, 255), 1)
+        
+
 
 def main():
     # testing.
