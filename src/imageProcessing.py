@@ -198,15 +198,12 @@ class Tracker:
     
     #tester function for 'quick and dirty' pupil detection
     def find_pupil_dirty(self, cv2Image):
-        #TODO automatically determine threshold and track threshold between dudes. If lighting changes over the course of the show this will not work. Might be able to assume size and shape and dynamically determine threshold from that??
         pre, preLabels = self.get_preprocessed_list(cv2Image)
         post = []
         postLabels = []
 
-        #setup for final stage
-        #template matching
-        methods = ['cv2.TM_CCOEFF', 'cv2.TM_CCOEFF_NORMED', 'cv2.TM_CCORR',
-            'cv2.TM_CCORR_NORMED', 'cv2.TM_SQDIFF', 'cv2.TM_SQDIFF_NORMED']
+        #template matching setup
+        methods = ['cv2.TM_CCOEFF', 'cv2.TM_CCOEFF_NORMED', 'cv2.TM_CCORR', 'cv2.TM_CCORR_NORMED', 'cv2.TM_SQDIFF', 'cv2.TM_SQDIFF_NORMED']
         templates = [self.generate_template(7)]
         templateLabels = ["none"]
         # templates = [cv2.imread('data/pupil_template.png', cv2.IMREAD_GRAYSCALE), cv2.imread('data/pupil_template_grey.jpg', cv2.IMREAD_GRAYSCALE)]
@@ -262,8 +259,6 @@ class Tracker:
                     bottom_right = (top_left[0] + w, top_left[1] + h)
                     imgCpy = cv2.cvtColor(img, cv2.COLOR_GRAY2RGB)
                     cv2.rectangle(imgCpy,top_left, bottom_right, (255, 0, 0), 5)
-                    # cv2.imshow("imgCpy", cv2.resize(imgCpy, (192, 192)))
-                    # cv2.waitKey(0)
                     post.append(imgCpy.copy())
                     postLabels.append(f"{preLabels[index]} templateMatching_{meth}_{templateLabels[i]}")
         if debug:

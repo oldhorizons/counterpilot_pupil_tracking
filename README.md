@@ -4,30 +4,27 @@ This repository implements a custom computer vision library primarily based arou
 # TO DO
 ## Testing
 - test people with glasses, different ethnicities, video in different lighting conditions
+- test video + tracking
+- put OS setup into a script you can just run from git pull
+- find an appropriately lightweight OS
 
 ## Functionality
 - server / communications wrappers. Check protocol.
 - Port to a linux container
 - Implement on a raspberry pi and test speed
 - Implement capture from video feed https://docs.opencv.org/4.x/d8/dfe/classcv_1_1VideoCapture.html
-- Implement tracking rather than just detecting at every frame (see https://www.guidodiepen.nl/2017/02/detecting-and-tracking-a-face-with-python-and-opencv/) 
-- Iris tracking
-### Iris Tracking
-- https://github.com/openPupil/PyPupilEXT THIS IS THE ONEEE
-- https://github.com/openPupil/Open-PupilEXT - GUI unnecessary in terms of bloat. See if you can find wrappers for the libraries below:
-- https://github.com/thirtysixthspan/cvEyeTracker/tree/master (C/C++ - GNU general public license)
-- https://github.com/LeszekSwirski/singleeyefitter/tree/master (C, MIT license - no restrictions)
-- https://github.com/tcsantini/EyeRecToo/tree/master (C++/C) - implements EyeRecToo, ElSe, PuRe, PuReSt
+- Implement tracking rather than just detecting at every frame (see https://www.guidodiepen.nl/2017/02/detecting-and-tracking-a-face-with-python-and-opencv/) - dlib correlation tracker
 
 ## Nice to have Functionality
 - Port to C++ for improved speed
 - check if the iterative tracking is actually faster than just tracking the eye and then the pupil in the eye. It prooobably is but just to be sure.
 
 # Need more info
-- where are the cameras? what angle will the face be at? how much of the face will be visible?
+- where are the cameras? what angle will the face be at? how much of the face will be visible? what communication protocol does the camera use?
 - what kind of Rpi will we be using? x64 architecture? (please)
-- what kind of camera? communication protocol?
+- do we need it to run faster? I'll implement dlib if we do
 - headset/brainwave implementation. check emails for SDK access
+- what sort of interfacing do you want to do with the software? manual setup or just track and hope for the best?  honestly template matching with an appropriately sized template might be a great start
 
 # At the end
 - Code cleanup. Remove comments and unnecessary memory bloat.
@@ -87,6 +84,10 @@ pip install opencv-python==4.10.0.84
 
 wget https://github.com/openPupil/PyPupilEXT/releases/download/v0.0.1-beta/PyPupilEXT-0.0.1-cp310-cp310-linux_x86_64.whl
 pip install PyPupilEXT-0.0.1-cp310-cp310-linux_x86_64.whl
+<!-- if libunwind.so.1 can't be found -->
+sudo apt-get install -y libunwind-dev
+sudo apt-get update
+sudo apt-get install -y libc++-dev
 
 sudo mkdir app
 git clone https://github.com/oldhorizons/counterpilot_pupil_tracking app
