@@ -25,12 +25,12 @@ This repository implements a custom computer vision library primarily based arou
 
 # Need more info
 - where are the cameras? what angle will the face be at? how much of the face will be visible?
+- what kind of Rpi will we be using? x64 architecture? (please)
+- what kind of camera? communication protocol?
 - headset/brainwave implementation. check emails for SDK access
 
 # At the end
 - Code cleanup. Remove comments and unnecessary memory bloat.
-
-
 
 # SETTING UP THE OS: RASPBERRY PI OS
 1. Run setup as normal. I'm using this image https://www.raspberrypi.com/software/
@@ -40,7 +40,9 @@ sudo apt update && sudo apt upgrade
 mkdir app | cd app
 <!-- switch to python 3.10.0 -->
 wget -qO - https://raw.githubusercontent.com/tvdsluijs/sh-python-installer/main/python.sh | sudo bash -s 3.10.0 
-<!-- Note that the above is also available as python.sh in /etc if you need it and it's no longer hosted. What I actually did was a simple wget and then sudo bash python.sh 3.10.0-->
+<!-- Note that the above is also available as python.sh in /etc if you need it and it's no longer hosted. What I actually did was a simple wget and then sudo bash python.sh 3.10.0
+Also note that it's possible this command is kind of broken? pyenv Just Works but the overhead might be a bit exxy. We'll see how it runs on a pi and if we need I'll port everything to C++
+which should be less integration hell because it's all IN C++ anyway, I'm just using a wrapper function bc I love to waste time -->
 
 <!-- set up env for pypupilext -->
 pip install pillow==9.0
@@ -88,10 +90,5 @@ pip install PyPupilEXT-0.0.1-cp310-cp310-linux_x86_64.whl
 
 sudo mkdir app
 git clone https://github.com/oldhorizons/counterpilot_pupil_tracking app
-
-
-
-FOR DEBUGGING PURPOSES ONLY
-sudo snap install --classic code
 
 '''

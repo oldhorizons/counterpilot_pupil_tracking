@@ -6,6 +6,8 @@ import os
 # import skimage.exposure as exposure
 # import dlib
 
+debug = False
+
 class Pupil:
     def __init__(self, xloc, yloc, diameter, maxHist = 10):
         self.x = xloc
@@ -59,7 +61,6 @@ class Pupil:
 class Tracker:
     #load in models for tracking etc.
     def __init__(self, pupilModel="Starburst", faceModelPath='data/haarcascades/haarcascade_frontalface_default.xml', eyeModelPath='data/haarcascades/haarcascade_eye.xml'):
-        #TODO try/catch here to prevent runtime errors further on?
         self.faceModel = cv2.CascadeClassifier(faceModelPath)
         self.eyeModel = cv2.CascadeClassifier(eyeModelPath)
         # if pupilModelPath == None:
@@ -169,8 +170,7 @@ class Tracker:
                     print(f"BAD METHOD: {method}")
                 return cv2Image.copy()
         #rescale image for use in further processing steps
-        img = cv2.normalize(img, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX)
-        # img = exposure.rescale_intensity(img, in_range='image', out_range=(0,255)).astype(np.uint8)
+        img = np.uint8(cv2.normalize(img, np.zeros(img.shape), alpha=0, beta=255, norm_type=cv2.NORM_MINMAX))
         return img
 
     #master preprocessing for 'quick and dirty' pupil detection
@@ -188,6 +188,14 @@ class Tracker:
             #     methodLabels.append(f"{method1}>{method2}")
         return methodOutputs, methodLabels
     
+    def generate_template(self, diameter=7):
+        grid = np.zeros((diameter, diameter))
+        for i in range(diameter):
+            for j in range(diameter):
+                if np.linalg.norm(((diameter/2)-i, (diameter/2)-j)) >= diameter/2:
+                    grid[i,j] = 255
+        return grid.astype('uint8')
+    
     #tester function for 'quick and dirty' pupil detection
     def find_pupil_dirty(self, cv2Image):
         #TODO automatically determine threshold and track threshold between dudes. If lighting changes over the course of the show this will not work. Might be able to assume size and shape and dynamically determine threshold from that??
@@ -199,8 +207,10 @@ class Tracker:
         #template matching
         methods = ['cv2.TM_CCOEFF', 'cv2.TM_CCOEFF_NORMED', 'cv2.TM_CCORR',
             'cv2.TM_CCORR_NORMED', 'cv2.TM_SQDIFF', 'cv2.TM_SQDIFF_NORMED']
-        templates = [cv2.imread('data/pupil_template.png', cv2.IMREAD_GRAYSCALE), cv2.imread('data/pupil_template_grey.jpg', cv2.IMREAD_GRAYSCALE)]
-        templateLabels = ["png", "jpg"]
+        templates = [self.generate_template(7)]
+        templateLabels = ["none"]
+        # templates = [cv2.imread('data/pupil_template.png', cv2.IMREAD_GRAYSCALE), cv2.imread('data/pupil_template_grey.jpg', cv2.IMREAD_GRAYSCALE)]
+        # templateLabels = ["png", "jpg"]
         w, h = templates[0].shape[::-1]
 
         #final step
@@ -255,69 +265,64 @@ class Tracker:
                     # cv2.imshow("imgCpy", cv2.resize(imgCpy, (192, 192)))
                     # cv2.waitKey(0)
                     post.append(imgCpy.copy())
-                    postLabels.append(f"{preLabels[index]} templateMatching {meth} {templateLabels[i]}")
-
-        #DISPLAY
-        pres = cv2.vconcat(pre)
-        cv2.imshow((', ').join(preLabels), pres)
-        cv2.waitKey(0)
-        
-        labels = []
-        i, prefix, l = 0, 'bwah', []
-        while i < len(post):
-            if prefix != postLabels[i].split(" ")[0] or i == len(post) - 1:
-                if len(l) > 0:
-                    posts = cv2.hconcat(l)
-                    cv2.imshow(prefix, posts)
-                    cv2.waitKey(0)
-                    print(" | ".join(postLabels))
-                prefix = postLabels[i].split(' ')[0]
-                l = []
-                labels = []
-            else:
-                l.append(post[i])
-                labels.append(postLabels[i])
-            i += 1
-
-        # n = 14
-        # chunks = [post[i:i + n] for i in range(0, len(post), n)]
-        # chunkLabels = [postLabels[i:i + n] for i in range(0, len(postLabels), n)]
-        # # chunksConcat = []
-        # for i, chunk in enumerate(chunks):
-        #     posts = cv2.hconcat(chunk)
-        #     print((', ').join(chunkLabels[i]))
-        #     cv2.imshow((', ').join(chunkLabels[i]), posts)
-        #     cv2.waitKey(0)
-        #     # chunksConcat.append(cv2.hconcat(chunk))
-
-        cv2.imshow("hi", img)
-        cv2.waitKey(0)
-        
-        cv2.destroyAllWindows()
-        # pysource eye motion tracking opencv with python
-        # medium also does it
-        #TODO check how stable the eye tracker is OR find eye edges (ideally both)
+                    postLabels.append(f"{preLabels[index]} templateMatching_{meth}_{templateLabels[i]}")
+        if debug:
+            #DISPLAY
+            pres = cv2.vconcat(pre)
+            print(', '.join(preLabels))
+            cv2.imshow((', ').join(preLabels), pres)
+            cv2.waitKey(0)
+            
+            labels = []
+            i, prefix, l = 0, 'bwah', []
+            while i < len(post):
+                if prefix != postLabels[i].split(" ")[0] or i == len(post) - 1:
+                    if len(l) > 0:
+                        posts = cv2.hconcat(l)
+                        print(" | ".join([l.split(' ')[-1] for l in labels]))
+                        cv2.imshow(prefix, posts)
+                        cv2.waitKey(0)
+                    prefix = postLabels[i].split(' ')[0]
+                    l = []
+                    labels = []
+                else:
+                    l.append(post[i])
+                    labels.append(postLabels[i])
+                i += 1
+            cv2.destroyAllWindows()
+            # pysource eye motion tracking opencv with python
+            # medium also does it
+            #TODO check how stable the eye tracker is OR find eye edges (ideally both)
     
     #PyPupilEXT pupil finder
     def find_pupil(self, cv2Image):
         # https://github.com/openPupil/PyPupilEXT
         pupil = self.pupilModel.run(cv2Image)
-        models = [pp.ElSe(), pp.ExCuSe(), pp.PuRe(), pp.PuReST(), pp.Starburst(), pp.Swirski2D()]
-        for model in models:
-            pupil = model.run(cv2Image)
-            print(f"{str(model.__class__).split(['.'][-1])} | {pupil.center}, {pupil.majorAxis()}")
-            #need location & diameter
-            imgCpy = cv2.cvtColor(cv2Image, cv2.COLOR_GRAY2RGB)
-            plotted = cv2.ellipse(imgCpy,
-                        (int(pupil.center[0]), int(pupil.center[1])),
-                        (int(pupil.minorAxis()/2), int(pupil.majorAxis()/2)), pupil.angle,
-                        0, 360, (0, 0, 255), 1)
-            cv2.imshow("plotted", plotted)
+        if debug:
+            plotted  = []
+            plotLabels = []
+            models = [pp.ElSe(), pp.ExCuSe(), pp.PuRe(), pp.PuReST(), pp.Starburst(), pp.Swirski2D()]
+            for model in models:
+                pupil = model.run(cv2Image)
+                print(f"{str(model.__class__).split(['.'][-1])} | {pupil.center}, {pupil.majorAxis()}")
+                #need location & diameter
+                imgCpy = cv2.cvtColor(cv2Image, cv2.COLOR_GRAY2RGB)
+                plot = cv2.ellipse(imgCpy,
+                            (int(pupil.center[0]), int(pupil.center[1])),
+                            (int(pupil.minorAxis()/2), int(pupil.majorAxis()/2)), pupil.angle,
+                            0, 360, (0, 0, 255), 1)
+                plotted.append(plot)
+                plotLabels.append(f"{str(model.__class__).split(['.'][-1])} | {pupil.center}, {pupil.majorAxis()}")
+            print(' | '.join(plotLabels))
+            cv2.imshow("comparison", cv2.hconcat(plotted))
             cv2.waitKey(0)
+            cv2.destroyAllWindows()
+        return pupil
 
 
 def main():
     # testing.
+    debug=True
     # https://www.guidodiepen.nl/2017/02/detecting-and-tracking-a-face-with-python-and-opencv/
     baseImage = cv2.imread('data/images/genericFace.png')
     resultImage = baseImage.copy()
@@ -326,6 +331,8 @@ def main():
     face = tracker.find_face(gray)
     eye = tracker.find_eyes(face)
     pupil = tracker.find_pupil(eye)
+    print(f"{pupil.majorAxis()}, {pupil.minorAxis()}")
+    pupil2 = tracker.find_pupil_dirty(eye)
     
 
 if __name__ == "__main__":
