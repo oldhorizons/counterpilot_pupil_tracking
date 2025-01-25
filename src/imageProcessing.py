@@ -3,13 +3,19 @@ import cv2
 import pypupilext as pp
 import matplotlib.pyplot as plt
 import os
-# import skimage.exposure as exposure
-# import dlib
 
-debug = False
+debug = True #generates lists of options, ignores given parameters
+verbose = True #shows everything generated
 
 class Pupil:
     def __init__(self, xloc, yloc, diameter, maxHist = 10):
+        """
+        Initialise an instance of the pupil class
+        Args:
+            xloc (int): the x location of the pupil
+            yloc (int): the y location of the pupil
+            diameter (int): the diameter of the pupil
+        """
         self.x = xloc
         self.y = yloc
         self.d = diameter
@@ -59,56 +65,210 @@ class Pupil:
         return self.dHist
 
 class Tracker:
-    #load in models for tracking etc.
     def __init__(self, pupilModel="Starburst", faceModelPath='data/haarcascades/haarcascade_frontalface_default.xml', eyeModelPath='data/haarcascades/haarcascade_eye.xml'):
+        """
+        Initialise tracker
+
+        Args:
+            pupilModel (str="Starburst"): the pupil detection/tracking method to be used. 
+                accepted values: {'ElSe', 'ExCuSe', 'PuRe', 'PuReST', 'Starburst', Swirski2D'} 
+                    OR a str(dict) of the format "{'pre': [{'none', 'blur', 'threshLow', 'threshMid', 
+                                                    'threshHigh', 'erosion', 'dilation', 'opening', 
+                                                    'closing', 'morphGradient', 'blackHat', 'topHat', 
+                                                    'sobelx', 'xobely', 'sobelxy', 'canny', 'laplacian'}],
+                                            'post': {'blob', 'hough', 
+                                                    'cv2.TM_CCOEFF', 'cv2.TM_CCOEFF_NORMED', 
+                                                    'cv2.TM_CCORR', 'cv2.TM_CCORR_NORMED', 
+                                                    'cv2.TM_SQDIFF', 'cv2.TM_SQDIFF_NORMED'}}"
+            faceModelPath (str): the filepath for the haar cascade face classifier
+            eyeModelPath (str): the filepath for the haar cascade eye classifier
+        Returns:
+            None
+        """
+        if debug:
+            pupilModel = "{'pre': 'all', 'post': 'blob'}"
         self.faceModel = cv2.CascadeClassifier(faceModelPath)
         self.eyeModel = cv2.CascadeClassifier(eyeModelPath)
-        # if pupilModelPath == None:
-        #     detector_params = cv2.SimpleBlobDetector_Params()
-        #     detector_params.filterByArea = True
-        #     detector_params.maxArea = 1500
-        #     self.pupilModel = cv2.SimpleBlobDetector_create(detector_params)
         match pupilModel:
             case "ElSe":
                 self.pupilModel = pp.ElSe()
+                self.pupilExtModel = True
             case "ExCuSe":
                 self.pupilModel = pp.ExCuSe()
+                self.pupilExtModel = True
             case "PuRe":
                 self.pupilModel = pp.PuRe()
+                self.pupilExtModel = True
             case "PuReST":
                 self.pupilModel = pp.PuReST()
+                self.pupilExtModel = True
             case "Starburst":
                 self.pupilModel = pp.Starburst()
+                self.pupilExtModel = True
             case "Swirski2D":
                 self.pupilModel = pp.Swirski2D()
+                self.pupilExtModel = True
             case _:
-                self.pupilModel = pp.PuRe()
+                self.pupilModelParams = eval(pupilModel)
+                # TODO check params ^ are valid
+                self.pupilExtModel = False
+                if self.pupilModelParams["post"] == "blob":
+                    #TODO these hyperparameters WILL have to be tuned
+                    #TODO look at thresholding, grouping, merging, etc.
+                    params = cv2.SimpleBlobDetector_Params()
+                    params.filterByArea = True
+                    params.maxArea = 1500
+                    params.filterByCircularity = True #shape circularity
+                    params.minCircularity = 0.5
+                    params.filterByInertia = True #shape longness
+                    params.minInertiaRatio = 0.6
+                    self.pupilModel = cv2.SimpleBlobDetector(params)
 
-    #find face in image using OpenCV haar cascade model and returns the cropped image
+    def draw_all_rectangles(self, cv2Image, objects, maxObject = [-1, -1, -1, -1], offset = (0, 0)): #TODO REDO USAGE
+        """
+        DEBUG METHOD - draws rectangles on an image
+
+        Args:
+            cv2Image (np.array): the image to be visualised. Entries should be in uint8 format
+            objects ([int[4]]): the objects to visualise. Each object takes format [x, y, w, h]
+            maxObject (int[4] = [-1,-1,-1,-1]): the object to draw in a different colour
+            offset ((int, int) = (0, 0)): the offset to give the rectangles. 
+                Used if searching for objects in a subsection of the original image 
+        
+        Returns:
+            colourImg (np.array, dtype=uint8): the image with rectangles drawn on
+
+        """
+        x, y, w, h = maxObject
+        xOff = offset[0]
+        yOff = offset[1]
+        colourImg = cv2.cvtColor(cv2Image, cv2.COLOR_GRAY2RGB)
+        for object in objects:
+            xLoc, yLoc, wLoc, hLoc = object
+            if (xLoc, yLoc, wLoc, hLoc) == (x, y, w, h):
+                c = (255, 0, 0)
+            else:
+                c = (0, 165, 255)
+            cv2.rectangle(colourImg,  (xLoc+xOff-10, yLoc+yOff-20),
+                        (xLoc+xOff + wLoc+10 , yLoc+yOff + hLoc+20),
+                        c,2)
+        return colourImg
+
+    def draw_pupil(self, cv2Image, pupil, offset=(0,0)):
+        """
+        DEBUG METHOD - draws a circle on an image
+
+        Args:
+            cv2Image (np.array): the image to be visualised. Entries should be in uint8 format
+            pupil (x(int), y(int), d(int)): the pupil to draw - (x, y) of center, and diameter
+            offset ((int, int) = (0, 0)): the offset to give the rectangles. 
+                Used if searching for objects in a subsection of the original image 
+        
+        Returns:
+            colourImg (np.array, dtype=uint8): the image with a circle drawn on
+
+        """
+        x = pupil.x
+        y = pupil.y
+        d = pupil.d
+        colourImg = cv2.cvtColor(cv2Image, cv2.COLOR_GRAY2RGB)
+        #draw circumference
+        cv2.circle(colourImg, (x, y), d//2, (255, 0, 0), 2)
+        #draw center
+        cv2.circle(colourImg, (x, y), 1, (0, 255, 0), 3) 
+        return colourImg
+
+    def show(self, cv2Image, label="Image", note=None, scale=1, destroy=False): #TODO replace all cv2.imshow with this
+        """
+        DEBUG METHOD to show an image in the openCV window
+
+        Args:
+            cv2Image (np.array. dtype=uint8): the image to display
+            label (str="Image"): the label for the window
+            note (str=None): the note to print when displaying the image, if any
+            scale (float=1): used to resize the image in all dimensions
+            destroy (bool=True): whether to destroy all windows
+
+        Returns:
+            None
+        """
+        if note != None:
+            print(note)
+        resize = cv2.resize(cv2Image, None, fx=scale, fy=scale)
+        cv2.imshow(label, resize)
+        cv2.waitKey(0)
+        if destroy:
+            cv2.destroyAllWindows()
+
     def find_face(self, cv2Image):
+        """
+        Find faces in an image using the OpenCV haar cascade model. 
+        Returns the original image cropped to just show the largest face and the coordinates of that face
+        If no face is detected, return the original image and (0, 0)
+
+        Args:
+            cv2Image (np.array, dtype=uint8): the image to detect faces in 
+        
+        Returns:
+            cv2Image (np.array, dtype=uint8): the original image, cropped to just show the detected face
+            (x, y) (int, int): the x and y coordinates of the detected face
+        """
         faces = self.faceModel.detectMultiScale(cv2Image, 1.3, 5)
         if len(faces) == 0:
-            return cv2Image
-        x, y, w, h = faces[np.argmax(faces, 0)[2]].tolist() #get biggest detected face, measured by width
-        # cv2.rectangle(resultImage,  (x-10, y-20),
-        #             (x + w+10 , y + h+20),
-        #             (0,165,255),2)
-        return cv2Image[y:y+h, x:x+w]
+            return cv2Image, (0, 0)
+        maxFace= faces[np.argmax(faces, 0)[2]].tolist() #get biggest detected face, measured by width
+        x, y, w, h = maxFace
+        if debug:
+            if verbose:
+                rects = self.draw_all_rectangles(cv2Image, faces, maxFace)
+                self.show(rects, label="faces detected")
+        return cv2Image[y:y+h, x:x+w], (x, y)
     
-    def find_eyes(self, cv2Image):
-        #TODO simple data assumptions? eyes will only be in the top half of the model, for e.g. - simplify computation
-        eyes = self.eyeModel.detectMultiScale(cv2Image, 1.3, 5)
-        resultImage = cv2Image.copy()
-        if len(eyes) == 0:
-            return cv2Image
-        x, y, w, h = eyes[np.argmax(eyes, 0)].tolist()[0] #returns rightmost eye detected (ideally there are only two)
-        # cv2.rectangle(resultImage,  (x-10, y-20),
-        #             (x + w+10 , y + h+20),
-        #             (0,165,255),2)
-        return cv2Image[y:y+h, x:x+w]
+    def find_eyes(self, cv2Image, xFace=0, yFace=0, wFace=-1, hFace=-1):
+        """
+        Find eyes in an image using the OpenCV haar cascade model.
+        Returns the original image cropped to just show the rightmost eye, and the eye's coordinates in the image
+        If no eyes are detected, return the original image and (0, 0)
 
-    #preprocessing for 'quick and dirty' pupil detection
-    def preprocess(self, cv2Image, method):
+        Args:
+            cv2Image (np.array, dtype=uint8): the image to detect eyes in 
+            xFace (int=0): the x-coordinate of the detected eye
+            yFace (int=0): the y-coordinate of the detected eye
+            wFace (int=-1): the width of the detected eye
+            hFace (int=-1): the height of the detected eye
+        
+        Returns:
+            cv2Image (np.array, dtype=uint8): the original image, cropped to just show the detected eye
+            (x, y) (int, int): the x and y coordinates of the detected eye
+        """
+        #TODO simple data assumptions? eyes will only be in the top half of the model, for e.g. - simplify computation
+        if wFace == -1:
+            wFace, hFace = cv2Image.shape #TODO RIGHT DIMENSIONS??
+        eyes = self.eyeModel.detectMultiScale(cv2Image[yFace:yFace+hFace, xFace:xFace+wFace], 1.3, 5)
+        if len(eyes) == 0:
+            return cv2Image, (0, 0)
+        maxEye = eyes[np.argmax(eyes, 0)].tolist()[0] 
+        x, y, w, h  = maxEye
+        if verbose:
+            rects = self.draw_all_rectangles(cv2Image, eyes, maxEye)
+            self.show(rects, label="eyes detected")
+        return cv2Image[y:y+h, x:x+w], (x, y)
+
+    def preprocess_opencv(self, cv2Image, method):
+        """
+        preprocessing for data-based pupil detection.
+        
+        Args:
+            cv2Image (np.array, dtype=uint8): the image to be preprocessed
+            method (str): the method to preprocess. Accepted values:
+                {"none", "blur", "threshLow", "threshMid", "threshHigh", 
+                "erosion", "dilation", "opening", "closing", "morphGradient", 
+                "blackHat", "topHat", "sobelx", "xobely", "sobelxy", "canny", 
+                "laplacian"}
+        
+        Returns:
+            img (np.array, dtype=uint8): the processed image
+        """
         match method:
         #gaussian blur
             case "blur":
@@ -173,127 +333,173 @@ class Tracker:
         img = np.uint8(cv2.normalize(img, np.zeros(img.shape), alpha=0, beta=255, norm_type=cv2.NORM_MINMAX))
         return img
 
-    #master preprocessing for 'quick and dirty' pupil detection
-    def get_preprocessed_list(self, cv2Image):
+    def get_preprocessed_list(self, cv2Image, multiLevel=False):
+        """
+        DEBUG METHOD to generate a list of all possible preprocessed images, to test the effectiveness
+        of different method combinations.
+
+        Args:
+            cv2Image (np.array, dtype=uint8): the image to process
+            multiLevel (bool=False): whether to apply one stage of preprocessing, or two stages.
+        
+        Returns
+            methodOutputs ([np.array, dtype=uint8]): the list of all preprocessed images
+            methodLabels ([str]): labels for each image in methodOutputs
+        """
         methods = ["none", "blur", "threshLow", "threshMid", "threshHigh", "erosion", "dilation", "opening", "closing", "morphGradient", "blackHat", "topHat", "sobelx", "xobely", "sobelxy", "canny", "laplacian"]
         methodLabels = []
         methodOutputs = []
         for method1 in methods:
-            img = self.preprocess(cv2Image, method1)
+            img = self.preprocess_opencv(cv2Image, method1)
             methodOutputs.append(img)
             methodLabels.append(method1)
-            # for method2 in methods:
-            #     out = self.preprocess(img.copy(), method2)
-            #     methodOutputs.append(out)
-            #     methodLabels.append(f"{method1}>{method2}")
+            if multiLevel:
+                for method2 in methods[1:]:
+                    out = self.preprocess_opencv(img.copy(), method2)
+                    methodOutputs.append(out)
+                    methodLabels.append(f"{method1}>{method2}")
+        if verbose:
+            self.show(cv2.hconcat(methodOutputs), label="preprocessed", note=" | ".join(methodLabels))
         return methodOutputs, methodLabels
     
     def generate_template(self, diameter=7):
+        """
+        Generates a template for a pupil of a given diameter, for use in template matching pupil detection
+        
+        Args:
+            diameter (int=7): the diameter of the pupil, in pixels
+        
+        Returns:
+            grid (np.array, dtype=uint8): a black circle on a grey background, or the template for the pupil
+        """
         grid = np.zeros((diameter, diameter))
         for i in range(diameter):
             for j in range(diameter):
                 if np.linalg.norm(((diameter/2)-i, (diameter/2)-j)) >= diameter/2:
-                    grid[i,j] = 255
+                    grid[i,j] = 100
         return grid.astype('uint8')
-    
-    #tester function for 'quick and dirty' pupil detection
-    def find_pupil_dirty(self, cv2Image):
-        pre, preLabels = self.get_preprocessed_list(cv2Image)
-        post = []
-        postLabels = []
 
-        #template matching setup
-        methods = ['cv2.TM_CCOEFF', 'cv2.TM_CCOEFF_NORMED', 'cv2.TM_CCORR', 'cv2.TM_CCORR_NORMED', 'cv2.TM_SQDIFF', 'cv2.TM_SQDIFF_NORMED']
-        templates = [self.generate_template(7)]
-        templateLabels = ["none"]
-        # templates = [cv2.imread('data/pupil_template.png', cv2.IMREAD_GRAYSCALE), cv2.imread('data/pupil_template_grey.jpg', cv2.IMREAD_GRAYSCALE)]
-        # templateLabels = ["png", "jpg"]
-        w, h = templates[0].shape[::-1]
-
-        #final step
-        for index, img in enumerate(pre):
+    def process_opencv(self, cv2Image, method): #TODO YOU ARE CURRENTLY DRAWING THESE TWICE YOU *GOOSE*
+        """
+        Performs pupil detection using data-based methods from the openCV library
+        
+        Args:
+            cv2Image (np.array, dtype=uint8)
+            method (str): the method to use for pupil detection. Possible values:
+                {'blob', 'hough', 'cv2.TM_CCOEFF', 'cv2.TM_CCOEFF_NORMED', 'cv2.TM_CCORR', 
+                'cv2.TM_CCORR_NORMED', 'cv2.TM_SQDIFF', 'cv2.TM_SQDIFF_NORMED'}
+        
+        Returns:
+            x (int): the x-coordinate of the pupil
+            y (int): the y-coordinate of the pupil
+            d (int): the diameter of the pupil
+        """
+        if method == "blob": #TODO
             #contour detection
-            imgCpy = img.copy()
-            contours, hierarchy = cv2.findContours(imgCpy, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-            imgCpy = cv2.cvtColor(img, cv2.COLOR_GRAY2RGB)
-            cv2.drawContours(imgCpy, contours, -1, (255,0,0), 2)
-            # cv2.imshow("contours", cv2.resize(imgCpy, (192, 192)))
-            # cv2.waitKey(0)
-            post.append(imgCpy.copy())
-            postLabels.append(f"{preLabels[index]} findContours")
+            contours, hierarchy = cv2.findContours(cv2Image, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+            cv2.drawContours(cv2Image, contours, -1, (255,0,0), 2)
+            keypoints = self.pupilModel.detect(cv2Image)
+            #TODO WHAT IS A KEYPOINT LOOK LIKE 
 
-            # Apply Hough transform on the blurred image - search for circles
-            imgCpy = img.copy()
-            detected_circles = cv2.HoughCircles(imgCpy,  
-                            cv2.HOUGH_GRADIENT, 1, 20, param1 = 50, 
-                        param2 = 30, minRadius = 1, maxRadius = 40) 
-            # Draw circles that are detected. 
+        elif method == "hough":
+            # Hough transform - search for circles
+            detected_circles = cv2.HoughCircles(cv2Image, cv2.HOUGH_GRADIENT, 
+                                                1, 20, param1 = 50, param2 = 30, 
+                                                minRadius = 1, maxRadius = 40) 
             if detected_circles is not None: 
                 # Convert the circle parameters a, b and r to integers. 
-                detected_circles = np.uint16(np.around(detected_circles)) 
-                for pt in detected_circles[0, :]: 
-                    imgCpy = cv2.cvtColor(img, cv2.COLOR_GRAY2RGB)
-                    a, b, r = pt[0], pt[1], pt[2] 
-                    # Draw the circumference of the circle. 
-                    cv2.circle(imgCpy, (a, b), r, (255, 0, 0), 2) 
-                    # Draw a small circle (of radius 1) to show the center. 
-                    cv2.circle(imgCpy, (a, b), 1, (0, 255, 0), 3) 
-                    # cv2.imshow("imgCpy", cv2.resize(imgCpy, (192, 192)))
-                    # cv2.waitKey(0)
-                    post.append(imgCpy.copy())
-                    postLabels.append(f"{preLabels[index]} detectCircles")
-
+                detected_circles = np.uint16(np.around(detected_circles))
+                # if verbose:
+                #     for pt in detected_circles[0, :]:
+                #         cv2Image = self.draw_pupil(cv2Image, (pt[0], pt[1], pt[2]*2))
+                #     self.show(cv2Image, label="Hough Transform Detected Circles")
+                pt = detected_circles[0,0] #TODO is this right
+                return pt[0], pt[1], pt[2]*2
+            else:
+                print("No circles detected with Hough transform")
+                return None
+        
+        elif method.startswith("cv2"):
             #template matching
-            for meth in methods:
-                for i, template in enumerate(templates):
-                    imgCpy = img.copy()
-                    method =eval(meth)
-                    # Apply template Matching
-                    res = cv2.matchTemplate(imgCpy,template,method)
-                    min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(res)
-                    # If the method is TM_SQDIFF or TM_SQDIFF_NORMED, take minimum
-                    if method in [cv2.TM_SQDIFF, cv2.TM_SQDIFF_NORMED]:
-                        top_left = min_loc
-                    else:
-                        top_left = max_loc
-                    bottom_right = (top_left[0] + w, top_left[1] + h)
-                    imgCpy = cv2.cvtColor(img, cv2.COLOR_GRAY2RGB)
-                    cv2.rectangle(imgCpy,top_left, bottom_right, (255, 0, 0), 5)
-                    post.append(imgCpy.copy())
-                    postLabels.append(f"{preLabels[index]} templateMatching_{meth}_{templateLabels[i]}")
+            template = self.generate_template(7)
+            w, h = template.shape[::-1]
+            method = eval(method)
+            res = cv2.matchTemplate(cv2Image,template,method)
+            min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(res)
+            # If the method is TM_SQDIFF or TM_SQDIFF_NORMED, take minimum
+            if method in [cv2.TM_SQDIFF, cv2.TM_SQDIFF_NORMED]:
+                top_left = min_loc
+            else:
+                top_left = max_loc
+            # if verbose:
+            #     rects = self.draw_all_rectangles(cv2Image, [(top_left[0], top_left[1], w, h)])
+            #     self.show(rects, label="Template Matching")
+            return top_left[0], top_left[1], w
+        else:
+            print("""
+            BAD METHOD GIVEN FOR PUPIL DETECTION. Valid methods are:
+            'blob', 'hough', 'cv2.TM_CCOEFF', 'cv2.TM_CCOEFF_NORMED', 'cv2.TM_CCORR', 'cv2.TM_CCORR_NORMED', 'cv2.TM_SQDIFF', 'cv2.TM_SQDIFF_NORMED'
+            """)
+
+    def get_processed_list(self, cv2Image, preStages = "processed"):
+        """
+        DEBUG FUNCTION that takes an image and applies all possible pupil detection methods, then displays them
+        
+        Args:
+            cv2Image (np.array, dtype=uint8): the image to process
+            preStages (str='processed'): the label of the display window
+
+        Returns:
+            pupils ([pupil]): the list of pupils, where each pupil is a tuple
+                with attributes (x (int), y (int), d (int))
+        """
+        images = []
+        pupils = []
+        methods = ['blob', 'hough', 'cv2.TM_CCOEFF', 'cv2.TM_CCOEFF_NORMED', 
+                        'cv2.TM_CCORR', 'cv2.TM_CCORR_NORMED', 'cv2.TM_SQDIFF', 
+                        'cv2.TM_SQDIFF_NORMED']
+        for method in methods:
+            x, y, d = self.process_opencv(cv2Image, method)
+            img = self.draw_pupil(cv2Image, (x, y, d))
+            images.append(img)
+            pupils.append((x, y, d))
+        self.show(cv2.hconcat(images), label=preStages, note=' | '.join(methods))
+        return pupils
+
+    def find_pupil_cv2(self, cv2Image):
+        """
+        finds pupil in an image using openCV and (if debug==False) 
+        the methods set in __init__, or (if debug==True) all method combinations
+        
+        Args:
+            cv2Image (np.array, dtype=uint8): the image to process
+        
+        Returns:
+            pupil (x(int), y(int), d(int)): the coordinates of the pupil found
+        """
         if debug:
-            #DISPLAY
-            pres = cv2.vconcat(pre)
-            print(', '.join(preLabels))
-            cv2.imshow((', ').join(preLabels), pres)
-            cv2.waitKey(0)
-            
-            labels = []
-            i, prefix, l = 0, 'bwah', []
-            while i < len(post):
-                if prefix != postLabels[i].split(" ")[0] or i == len(post) - 1:
-                    if len(l) > 0:
-                        posts = cv2.hconcat(l)
-                        print(" | ".join([l.split(' ')[-1] for l in labels]))
-                        cv2.imshow(prefix, posts)
-                        cv2.waitKey(0)
-                    prefix = postLabels[i].split(' ')[0]
-                    l = []
-                    labels = []
-                else:
-                    l.append(post[i])
-                    labels.append(postLabels[i])
-                i += 1
-            cv2.destroyAllWindows()
-            # pysource eye motion tracking opencv with python
-            # medium also does it
-            #TODO check how stable the eye tracker is OR find eye edges (ideally both)
+            pre, preLabels = self.get_preprocessed_list(cv2Image)
+            for i in range(len(pre)):
+                post, postLabels = self.get_opencv_pupil_list(pre[i], preLabels[i])
+        else:
+            for step in self.pupilModelParams['pre']:
+                cv2Image = self.preprocess_opencv(cv2Image, step)
+            pupil = self.process_opencv(cv2Image, self.pupilModelParams['post'])
+        return pupil
     
-    #PyPupilEXT pupil finder
-    def find_pupil(self, cv2Image):
-        # https://github.com/openPupil/PyPupilEXT
-        pupil = self.pupilModel.run(cv2Image)
-        if debug:
+    def find_pupil_pupilEXT(self, cv2Image):
+        """
+        finds a pupil in an image using an algorithm from https://github.com/openPupil/PyPupilEXT
+        
+        Args:
+            cv2Image (np.array, dtype=uint8): the image to find a pupil in
+        
+        Returns:
+            pupil 
+        """
+        if not debug:
+            pupil = self.pupilModel.run(cv2Image)
+        else:
             plotted  = []
             plotLabels = []
             models = [pp.ElSe(), pp.ExCuSe(), pp.PuRe(), pp.PuReST(), pp.Starburst(), pp.Swirski2D()]
@@ -308,12 +514,19 @@ class Tracker:
                             0, 360, (0, 0, 255), 1)
                 plotted.append(plot)
                 plotLabels.append(f"{str(model.__class__).split(['.'][-1])} | {pupil.center}, {pupil.majorAxis()}")
-            print(' | '.join(plotLabels))
-            cv2.imshow("comparison", cv2.hconcat(plotted))
-            cv2.waitKey(0)
-            cv2.destroyAllWindows()
+            self.show(cv2.hconcat(plotted), "Pupils Detected", ' | '.join(plotLabels))
         return pupil
 
+    def track(self, cv2Image, ID):
+        grayscale = cv2.cvtColor(cv2Image, cv2.COLOR_BGR2GRAY)
+        if self.pupilExtModel:
+            pupil = self.find_pupil_pupilEXT(grayscale)
+        else:
+            pupil = self.find_pupil_cv2(grayscale)
+        # pysource eye motion tracking opencv with python
+        # medium also does it
+        #TODO check how stable the eye tracker is OR find eye edges (ideally both)
+        pass
 
 def main():
     # testing.
@@ -323,9 +536,10 @@ def main():
     resultImage = baseImage.copy()
     gray = cv2.cvtColor(baseImage, cv2.COLOR_BGR2GRAY)
     tracker = Tracker()
-    face = tracker.find_face(gray)
-    eye = tracker.find_eyes(face)
-    pupil = tracker.find_pupil(eye)
+    face, faceLoc = tracker.find_face(gray)
+    eye, eyeLoc = tracker.find_eyes(face)
+    pupil = tracker.find_pupil_pupilEXT(eye)
+    pupil2 = tracker.find_pupil_cv2(eye)
     print(f"{pupil.majorAxis()}, {pupil.minorAxis()}")
     pupil2 = tracker.find_pupil_dirty(eye)
     
