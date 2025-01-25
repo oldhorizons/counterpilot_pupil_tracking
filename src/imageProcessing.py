@@ -151,7 +151,7 @@ class Tracker:
                 c = (0, 165, 255)
             cv2.rectangle(colourImg,  (xLoc+xOff-10, yLoc+yOff-20),
                         (xLoc+xOff + wLoc+10 , yLoc+yOff + hLoc+20),
-                        c,2)
+                        c,1)
         return colourImg
 
     def draw_pupil(self, cv2Image, pupil, offset=(0,0)):
@@ -168,14 +168,14 @@ class Tracker:
             colourImg (np.array, dtype=uint8): the image with a circle drawn on
 
         """
-        x = pupil.x
-        y = pupil.y
-        d = pupil.d
+        x = pupil[0]
+        y = pupil[1]
+        d = pupil[2]
         colourImg = cv2.cvtColor(cv2Image, cv2.COLOR_GRAY2RGB)
         #draw circumference
-        cv2.circle(colourImg, (x, y), d//2, (255, 0, 0), 2)
+        cv2.circle(colourImg, (x, y), d//2, (255, 0, 0), 1)
         #draw center
-        cv2.circle(colourImg, (x, y), 1, (0, 255, 0), 3) 
+        cv2.circle(colourImg, (x, y), 1, (0, 255, 0), 1) 
         return colourImg
 
     def show(self, cv2Image, label="Image", note=None, scale=1, destroy=False): #TODO replace all cv2.imshow with this
@@ -346,15 +346,15 @@ class Tracker:
             methodOutputs ([np.array, dtype=uint8]): the list of all preprocessed images
             methodLabels ([str]): labels for each image in methodOutputs
         """
-        methods = ["none", "blur", "threshLow", "threshMid", "threshHigh", "erosion", "dilation", "opening", "closing", "morphGradient", "blackHat", "topHat", "sobelx", "xobely", "sobelxy", "canny", "laplacian"]
-        methodLabels = []
-        methodOutputs = []
+        methods = ["blur", "threshLow", "threshMid", "threshHigh", "erosion", "dilation", "opening", "closing", "morphGradient", "blackHat", "topHat", "sobelx", "xobely", "sobelxy", "canny", "laplacian"]
+        methodLabels = ["none"]
+        methodOutputs = [cv2Image.copy()]
         for method1 in methods:
             img = self.preprocess_opencv(cv2Image, method1)
             methodOutputs.append(img)
             methodLabels.append(method1)
             if multiLevel:
-                for method2 in methods[1:]:
+                for method2 in methods:
                     out = self.preprocess_opencv(img.copy(), method2)
                     methodOutputs.append(out)
                     methodLabels.append(f"{method1}>{method2}")
@@ -379,7 +379,7 @@ class Tracker:
                     grid[i,j] = 100
         return grid.astype('uint8')
 
-    def process_opencv(self, cv2Image, method): #TODO YOU ARE CURRENTLY DRAWING THESE TWICE YOU *GOOSE*
+    def process_opencv(self, cv2Image, method):
         """
         Performs pupil detection using data-based methods from the openCV library
         
@@ -399,7 +399,7 @@ class Tracker:
             contours, hierarchy = cv2.findContours(cv2Image, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
             cv2.drawContours(cv2Image, contours, -1, (255,0,0), 2)
             keypoints = self.pupilModel.detect(cv2Image)
-            #TODO WHAT IS A KEYPOINT LOOK LIKE 
+            #TODO unknown C# error and probably honestly not worth fixing, it's not going to be nearly as precise as the pupilEXT stuff
 
         elif method == "hough":
             # Hough transform - search for circles
@@ -417,7 +417,7 @@ class Tracker:
                 return pt[0], pt[1], pt[2]*2
             else:
                 print("No circles detected with Hough transform")
-                return None
+                return 0, 0, 0
         
         elif method.startswith("cv2"):
             #template matching
@@ -434,7 +434,7 @@ class Tracker:
             # if verbose:
             #     rects = self.draw_all_rectangles(cv2Image, [(top_left[0], top_left[1], w, h)])
             #     self.show(rects, label="Template Matching")
-            return top_left[0], top_left[1], w
+            return top_left[0] + w//2, top_left[1] + h//2, w
         else:
             print("""
             BAD METHOD GIVEN FOR PUPIL DETECTION. Valid methods are:
@@ -455,7 +455,8 @@ class Tracker:
         """
         images = []
         pupils = []
-        methods = ['blob', 'hough', 'cv2.TM_CCOEFF', 'cv2.TM_CCOEFF_NORMED', 
+        # NB removed 'blob' from methods because it's broken and will take *forever* to fix
+        methods = ['hough', 'cv2.TM_CCOEFF', 'cv2.TM_CCOEFF_NORMED', 
                         'cv2.TM_CCORR', 'cv2.TM_CCORR_NORMED', 'cv2.TM_SQDIFF', 
                         'cv2.TM_SQDIFF_NORMED']
         for method in methods:
@@ -478,9 +479,10 @@ class Tracker:
             pupil (x(int), y(int), d(int)): the coordinates of the pupil found
         """
         if debug:
-            pre, preLabels = self.get_preprocessed_list(cv2Image)
+            pre, preLabels = self.get_preprocessed_list(cv2Image, multiLevel=True)
             for i in range(len(pre)):
-                post, postLabels = self.get_opencv_pupil_list(pre[i], preLabels[i])
+                post = self.get_processed_list(pre[i], preLabels[i])
+                pupil = post[-1]
         else:
             for step in self.pupilModelParams['pre']:
                 cv2Image = self.preprocess_opencv(cv2Image, step)
@@ -513,7 +515,7 @@ class Tracker:
                             (int(pupil.minorAxis()/2), int(pupil.majorAxis()/2)), pupil.angle,
                             0, 360, (0, 0, 255), 1)
                 plotted.append(plot)
-                plotLabels.append(f"{str(model.__class__).split(['.'][-1])} | {pupil.center}, {pupil.majorAxis()}")
+                plotLabels.append(f"{str(model.__class__).split('.')[-1][:-2]}: {np.around(pupil.center)}, {pupil.majorAxis()}")
             self.show(cv2.hconcat(plotted), "Pupils Detected", ' | '.join(plotLabels))
         return pupil
 
@@ -531,6 +533,7 @@ class Tracker:
 def main():
     # testing.
     debug=True
+    verbose=True
     # https://www.guidodiepen.nl/2017/02/detecting-and-tracking-a-face-with-python-and-opencv/
     baseImage = cv2.imread('data/images/genericFace.png')
     resultImage = baseImage.copy()
@@ -538,10 +541,9 @@ def main():
     tracker = Tracker()
     face, faceLoc = tracker.find_face(gray)
     eye, eyeLoc = tracker.find_eyes(face)
-    pupil = tracker.find_pupil_pupilEXT(eye)
+    pupil = tracker.find_pupil_pupilEXT(eye.copy())
     pupil2 = tracker.find_pupil_cv2(eye)
     print(f"{pupil.majorAxis()}, {pupil.minorAxis()}")
-    pupil2 = tracker.find_pupil_dirty(eye)
     
 
 if __name__ == "__main__":
