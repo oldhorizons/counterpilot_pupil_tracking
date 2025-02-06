@@ -1,7 +1,7 @@
 sudo apt update && sudo apt upgrade
 cd app
 
-echo "**********Installing Python 3.10 using pyenv**********"
+echo "**********Installing Pyenv**********"
 curl https://pyenv.run | bash
 if [ -e ~/.bash_profile ]
 then
@@ -14,6 +14,7 @@ echo 'eval "$(pyenv virtualenv-init -)"' >> ~/.bashrc
 exec $SHELL
 sudo apt install build-essential libssl-dev zlib1g-dev libbz2-dev libreadline-dev libsqlite3-dev curl git libncursesw5-dev xz-utils tk-dev libxml2-dev libxmlsec1-dev libffi-dev liblzma-dev
 
+echo "**********Installing Python 3.10 using pyenv**********"
 pyenv install 3.10
 pyenv global 3.10
 
@@ -43,5 +44,4 @@ sudo apt-get install -y libc++-dev
 # cd ../
 # git clone https://github.com/oldhorizons/counterpilot_pupil_tracking app
 # cd app
-
 
