@@ -370,7 +370,7 @@ class Tracker:
             diameter (int=7): the diameter of the pupil, in pixels
         
         Returns:
-            grid (np.array, dtype=uint8): a black circle on a grey background, or the template for the pupil
+            grid (np.array, dtype=uint8): a black circle on a grey background (the template for the pupil)
         """
         grid = np.zeros((diameter, diameter))
         for i in range(diameter):
@@ -479,7 +479,7 @@ class Tracker:
             pupil (x(int), y(int), d(int)): the coordinates of the pupil found
         """
         if debug:
-            pre, preLabels = self.get_preprocessed_list(cv2Image, multiLevel=True)
+            pre, preLabels = self.get_preprocessed_list(cv2Image, multiLevel=False)
             for i in range(len(pre)):
                 post = self.get_processed_list(pre[i], preLabels[i])
                 pupil = post[-1]
