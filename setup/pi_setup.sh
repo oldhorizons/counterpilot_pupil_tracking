@@ -36,7 +36,7 @@ echo "**********downloading pypupilEXT**********"
 wget https://github.com/openPupil/PyPupilEXT/releases/download/v0.0.1-beta/PyPupilEXT-0.0.1-cp310-cp310-linux_x86_64.whl
 pip install PyPupilEXT-0.0.1-cp310-cp310-linux_x86_64.whl
 
-echo "**********fixing "libunwind.so.1 not being found**********"
+echo "**********fixing libunwind.so.1 not being found**********"
 sudo apt-get install -y libunwind-dev
 sudo apt-get update
 sudo apt-get install -y libc++-dev
