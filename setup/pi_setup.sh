@@ -2,16 +2,20 @@ sudo apt update && sudo apt upgrade
 cd app
 
 echo "**********Installing Pyenv**********"
-curl https://pyenv.run | bash
-if [ -e ~/.bash_profile ]
+if [ -e ~/root/.pyenv ]
 then
-	printf 'export PYENV_ROOT="$HOME/.pyenv"\n[[ -d $PYENV_ROOT/bin ]] && export PATH="$PYENV_ROOT/bin:$PATH"\neval "$(pyenv init - bash)"\n' >> ~/.bash_profile
 else
-	printf 'export PYENV_ROOT="$HOME/.pyenv"\n[[ -d $PYENV_ROOT/bin ]] && export PATH="$PYENV_ROOT/bin:$PATH"\neval "$(pyenv init - bash)"\n' >> ~/.profile
-	printf 'export PYENV_ROOT="$HOME/.pyenv"\n[[ -d $PYENV_ROOT/bin ]] && export PATH="$PYENV_ROOT/bin:$PATH"\neval "$(pyenv init - bash)"\n' >> ~/.bashrc
+    curl https://pyenv.run | bash
+    if [ -e ~/.bash_profile ]
+    then
+        printf 'export PYENV_ROOT="$HOME/.pyenv"\n[[ -d $PYENV_ROOT/bin ]] && export PATH="$PYENV_ROOT/bin:$PATH"\neval "$(pyenv init - bash)"\n' >> ~/.bash_profile
+    else
+        printf 'export PYENV_ROOT="$HOME/.pyenv"\n[[ -d $PYENV_ROOT/bin ]] && export PATH="$PYENV_ROOT/bin:$PATH"\neval "$(pyenv init - bash)"\n' >> ~/.profile
+        printf 'export PYENV_ROOT="$HOME/.pyenv"\n[[ -d $PYENV_ROOT/bin ]] && export PATH="$PYENV_ROOT/bin:$PATH"\neval "$(pyenv init - bash)"\n' >> ~/.bashrc
+    fi
+    echo 'eval "$(pyenv virtualenv-init -)"' >> ~/.bashrc
+    exec $SHELL
 fi
-echo 'eval "$(pyenv virtualenv-init -)"' >> ~/.bashrc
-exec $SHELL
 sudo apt install build-essential libssl-dev zlib1g-dev libbz2-dev libreadline-dev libsqlite3-dev curl git libncursesw5-dev xz-utils tk-dev libxml2-dev libxmlsec1-dev libffi-dev liblzma-dev
 
 echo "**********Installing Python 3.10 using pyenv**********"

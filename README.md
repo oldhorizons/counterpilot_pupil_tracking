@@ -32,4 +32,4 @@ This repository implements a custom computer vision library primarily based arou
 # SETTING UP THE OS
 1. Run setup as normal. I'm using this image https://www.raspberrypi.com/software/
 2. Clone this repo into the /app folder using '''git clone https://github.com/oldhorizons/counterpilot_pupil_tracking app'''
-3. Run pi_setup.sh or ubuntu_setup.sh using '''./app/setup/pi_setup.sh'''
+3. Run pi_setup.sh or ubuntu_setup.sh using '''sudo bash ./app/setup/pi_setup.sh'''
