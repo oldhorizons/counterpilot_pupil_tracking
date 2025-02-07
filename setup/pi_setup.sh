@@ -1,12 +1,12 @@
 sudo apt update && sudo apt upgrade
 cd app
 
-if [ -e ~/root/.pyenv ]; then
+if [ -d ~/root/.pyenv ]; then
     echo "**********Pyenv already installed. Skipping pyenv installation**********"
 else
     echo "**********Installing Pyenv**********"
     curl https://pyenv.run | bash
-    if [ -e ~/.bash_profile ]; then
+    if [ -d ~/.bash_profile ]; then
         printf 'export PYENV_ROOT="$HOME/.pyenv"\n[[ -d $PYENV_ROOT/bin ]] && export PATH="$PYENV_ROOT/bin:$PATH"\neval "$(pyenv init - bash)"\n' >> ~/.bash_profile
     else
         printf 'export PYENV_ROOT="$HOME/.pyenv"\n[[ -d $PYENV_ROOT/bin ]] && export PATH="$PYENV_ROOT/bin:$PATH"\neval "$(pyenv init - bash)"\n' >> ~/.profile
