@@ -18,8 +18,8 @@ fi
 sudo apt install build-essential libssl-dev zlib1g-dev libbz2-dev libreadline-dev libsqlite3-dev curl git libncursesw5-dev xz-utils tk-dev libxml2-dev libxmlsec1-dev libffi-dev liblzma-dev
 
 echo "**********Installing Python 3.10 using pyenv**********"
-pyenv install 3.10
-pyenv global 3.10
+~/.pyenv/bin/pyenv install 3.10 #because pyenv as a command on its own doesn't work??
+~/.pyenv/bin/pyenv global 3.10
 
 # <!-- wget -qO - https://raw.githubusercontent.com/tvdsluijs/sh-python-installer/main/python.sh | sudo bash -s 3.10.0  -->
 # <!-- Note that the above is also available as python.sh in /etc if you need it and it's no longer hosted. What I actually did was a simple wget and then sudo bash python.sh 3.10.0
