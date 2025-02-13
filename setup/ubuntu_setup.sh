@@ -34,3 +34,5 @@ pip install PyPupilEXT-0.0.1-cp310-cp310-linux_x86_64.whl
 sudo apt-get install -y libunwind-dev
 sudo apt-get update
 sudo apt-get install -y libc++-dev
+
+pip install python-osc

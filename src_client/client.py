@@ -4,18 +4,32 @@ import requests
 import time
 from base64 import b64encode
 import json
+from pythonosc import udp_client, osc_message
+import constants
 
-url = "192.168.0.72:8080"
+ip = constants.ip
+port = constants.http_port
+addr = "http://" + ip + ":" + str(port)
 
-def send_request(image):
-    xdim, ydim = image.shape
+def send_osc(image):
+    print(image.shape)
+    xdim, ydim, _ = image.shape
     encoded_image = b64encode(image).decode('utf-8')
-    response = requests.post(url, json={"image": encoded_image, "xdim": xdim, "ydim": ydim})
+    message = osc_message.OscMessage(encoded_image)
+    client.sent_message("/image", message)
+    time.sleep(1)
+   
+def send_request(image):
+    xdim, ydim, _ = image.shape
+    encoded_image = b64encode(image).decode('utf-8')
+    response = requests.post(addr, headers={"Host": "www.google.com"}, json={"image": encoded_image, "xdim": xdim, "ydim": ydim})
     return response
 
 cam = Camera()
+client = udp_client.SimpleUDPClient(ip, port)
 
 while True:
     img = cam.capture_array()
-    response = send_request(img)
-    time.sleep(10)
+    #cam.take_photo("beep.jpg")
+    send_request(img)
+    time.sleep(1)
