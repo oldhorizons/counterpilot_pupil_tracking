@@ -16,6 +16,7 @@ else
     exec $SHELL
 fi
 sudo apt install build-essential libssl-dev zlib1g-dev libbz2-dev libreadline-dev libsqlite3-dev curl git libncursesw5-dev xz-utils tk-dev libxml2-dev libxmlsec1-dev libffi-dev liblzma-dev
+# sudo apt-get install libjpeg62-turbo-dev #might not need this
 
 echo "**********Installing Python 3.10 using pyenv**********"
 ~/.pyenv/bin/pyenv install 3.10 #because pyenv as a command on its own doesn't work??
@@ -27,17 +28,17 @@ echo "**********Installing Python 3.10 using pyenv**********"
 # which should be less integration hell because it's all IN C++ anyway, I'm just using a wrapper function bc I love to waste time -->
 
 echo "**********Creating venv**********"
-python -m venv env
-env/scripts/activate
+# python -m venv env
+# source env/bin/activate
 
 echo "**********Setting up env for pypupilext**********"
-pip install pillow==9.0
-pip install numpy==1.26.4 matplotlib==3.8.4 pandas==2.2.2
-pip install opencv-python==4.10.0.84
+sudo env/bin/pip install pillow==9.0
+sudo env/bin/pip install numpy==1.26.4 matplotlib==3.8.4 pandas==2.2.2
+sudo env/bin/pip install opencv-python==4.10.0.84
 
 echo "**********downloading pypupilEXT**********"
 wget https://github.com/openPupil/PyPupilEXT/releases/download/v0.0.1-beta/PyPupilEXT-0.0.1-cp310-cp310-linux_x86_64.whl
-pip install PyPupilEXT-0.0.1-cp310-cp310-linux_x86_64.whl
+sudo env/bin/pip install PyPupilEXT-0.0.1-cp310-cp310-linux_x86_64.whl
 
 echo "**********fixing libunwind.so.1 not being found**********"
 sudo apt-get install -y libunwind-dev

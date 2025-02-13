@@ -5,12 +5,10 @@ This repository implements a custom computer vision library primarily based arou
 ## Testing
 - test people with glasses, different ethnicities, video in different lighting conditions
 - test video + tracking
-- put OS setup into a script you can just run from git pull
 - find an appropriately lightweight OS
 
 ## Functionality
-- server / communications wrappers. Check protocol.
-- Port to a linux container
+- server / communications wrappers. Check protocol. !!!!!!!!!!
 - Implement on a raspberry pi and test speed
 - Implement capture from video feed https://docs.opencv.org/4.x/d8/dfe/classcv_1_1VideoCapture.html
 - Implement tracking rather than just detecting at every frame (see https://www.guidodiepen.nl/2017/02/detecting-and-tracking-a-face-with-python-and-opencv/) - dlib correlation tracker
@@ -32,7 +30,4 @@ This repository implements a custom computer vision library primarily based arou
 # SETTING UP THE OS
 1. Run setup as normal. I'm using this image https://www.raspberrypi.com/software/
 2. Clone this repo into the /app folder using '''git clone https://github.com/oldhorizons/counterpilot_pupil_tracking app'''
-3. Run pi_setup.sh or ubuntu_setup.sh using '''sudo bash ./app/setup/pi_setup.sh'''
-
-# CHECKING THE CAMERA WORKS
-on Pi OS, run "libcamera-still" to capture and show an image, or "libcamera-vid -t 0" to show live video capture with no timeout
+3. Run pi_setup.sh or ubuntu_setup.sh using '''./app/setup/pi_setup.sh'''
