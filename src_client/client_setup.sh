@@ -5,7 +5,6 @@
 
 sudo apt install python3-picamzero
 
-
 # sudo apt-get install libatlas-base-dev libavcodec-dev libavformat-dev libgtk-3-dev libopenjp2-7 libswscale-dev python3-pip
 # # pip3 install numpy opencv-python picamera2
 # sudo apt install libcap-dev python3-libcamera #python3-picamzero python3-picamera2??
