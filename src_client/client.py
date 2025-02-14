@@ -3,37 +3,53 @@ import numpy as np
 import requests
 import time
 from base64 import b64encode
+#from matplotlib import pyplot as plt
 import json
+from copy import deepcopy
 from pythonosc import udp_client, osc_message
 
-ip = "192.168.0.92"
-port = 5005
-addr = "http://" + ip + ":" + str(port)
-x, y, w, h = 0, 0, 0, 0
+class CaptureCommunicator:
+    def __init__(self):
+        self.ip = "10.0.0.234"
+        self.port = 5005
+        self.addr = "http://" + self.ip + ":" + str(self.port)
+        self.x, self.y, self.w, self.h = 0,0,0,0
+        self.cam = Camera()
+        self.cam.white_balance = 'cloudy'
+        self.client = udp_client.SimpleUDPClient(self.ip, self.port)
+        print("setup complete")
+        time.sleep(5)
 
-def send_osc(image):
-    print(image.shape)
-    xdim, ydim, _ = image.shape
-    encoded_image = b64encode(image).decode('utf-8')
-    message = osc_message.OscMessage(encoded_image)
-    client.send_message("/image", message)
-    time.sleep(1)
-    
-def send_request(image):
-    print(image.shape)
-    xdim, ydim, _ = image.shape
-    encoded_image = b64encode(image).decode('utf-8')
-    print("sending request")
-    response = requests.post(addr, headers={"Host": "www.google.com"}, json={"image": encoded_image, "xdim": xdim, "ydim": ydim})
-    print(response)
-    return response
+    def send_osc(self, image):
+        xdim, ydim, _ = image.shape
+        encoded_image = b64encode(image).decode('utf-8')
+        message = osc_message.OscMessage(encoded_image)
+        self.client.send_message("/image", message)
+        time.sleep(1)
+        
+    def send_request(self, image):
+        xdim, ydim, _ = image.shape
+        encoded_image = b64encode(image)
+        utf8rep = encoded_image.decode('utf-8')
+        print("sending request")
+        response = requests.post(self.addr, headers={"Host": "www.google.com"}, json={"image": utf8rep, "xdim": xdim, "ydim": ydim})
+        c = response.content.decode()
+        if self.w == 0:
+            self.x, self.y, self.w, self.h = [int(i) for i in response.content.decode()[1:-1].split(',')]
+            print(f"ROI x: {self.x}, y: {self.y}, w: {self.w}, h: {self.h}")
+        return response
 
-cam = Camera()
-client = udp_client.SimpleUDPClient(ip, port)
-print("setup complete")
+    def run(self):
+        while True:
+            img = self.cam.capture_array()
+            print("image captured")
+            if self.w != 0:
+                #todo persist if connection goes away
+                img = deepcopy(img[self.y:self.y+self.h, self.x:self.x+self.w])
+            #cam.take_photo("beep.jpg")
+            self.send_request(img)
+            time.sleep(100)
 
-while True:
-    img = cam.capture_array()
-    print("image captured")
-    send_request(img)
-    time.sleep(1)
+if __name__ == "__main__":
+    cc = CaptureCommunicator()
+    cc.run()
