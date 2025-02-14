@@ -25,6 +25,7 @@ class TrackerRequestHandler(BaseHTTPRequestHandler):
         x, y = pupil.center
         d = pupil.physicalDiameter
         if d < 0:
+            print("no pupil found")
             return
         colourImg = cv2.cvtColor(cv2Image, cv2.COLOR_GRAY2RGB)
         #draw circumference
