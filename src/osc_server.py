@@ -44,10 +44,10 @@ class OSCCommunicator:
         print("Starting Client")
         self.client = udp_client.SimpleUDPClient(self.ip, self.client_port)
         # print("Sending on {}".format(client.))
-        thread = threading.Thread(target=self.send_message(self.client, "hello world!", "/1/echo"))
+        thread = threading.Thread(target=self.client_message_handler("hello world!", "/1/echo"))
         thread.start()
 
-    def send_message(self, message, endpoint):
+    def client_message_handler(self, message, endpoint):
         while True:
             endpoint, message = self.messageQueue.get()
             self.client.send_message(endpoint, message)
