@@ -1,23 +1,18 @@
 import base64
 import numpy as np
 import json
-import cv2
 import pypupilext as pp
 from matplotlib import pyplot as plt
-from functools import cached_property
-from http.cookies import SimpleCookie
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from urllib.parse import parse_qsl, urlparse
-from test_server_osc import OSCCommunicator
 from constants import ip, http_port, osc_ip, osc_port
-from queue import Queue
 import io
 from pupil_tracker import PupilTracker
 
-pupilTracker = PupilTracker(ip, http_port)
+pupilTracker = PupilTracker(osc_ip, osc_port)
 
 class TrackerRequestHandler(BaseHTTPRequestHandler):
-    def process_request(self, json):
+    def process_request(self):
         global pupilTracker
         #extract data
         json = self.post_data()
@@ -36,6 +31,7 @@ class TrackerRequestHandler(BaseHTTPRequestHandler):
         image_bytes_io = io.BytesIO(decoded_image)
         npImg = np.frombuffer(image_bytes_io.getvalue(), np.uint8)
         img = npImg.reshape(xDim, yDim, 3)
+        print("data extracted")
         x, y, w, h = pupilTracker.process_pupil(img, clientID)
         return f"[{x}, {y}, {w}, {h}]"
 
@@ -48,7 +44,7 @@ class TrackerRequestHandler(BaseHTTPRequestHandler):
         self.send_response(200)
         self.send_header("Content-Type", "application/json")
         self.end_headers()
-        response = self.process_request(self.post_data())
+        response = self.process_request()
         self.wfile.write(response.encode("utf-8"))
         print("sent response")
 

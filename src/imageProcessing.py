@@ -75,7 +75,7 @@ class Tracker:
                     OR a str(dict) of the format "{'pre': [{'none', 'blur', 'threshLow', 'threshMid', 
                                                     'threshHigh', 'erosion', 'dilation', 'opening', 
                                                     'closing', 'morphGradient', 'blackHat', 'topHat', 
-                                                    'sobelx', 'xobely', 'sobelxy', 'canny', 'laplacian'}],
+                                                    'sobelx', 'sobely', 'sobelxy', 'canny', 'laplacian'}],
                                             'post': {'blob', 'hough', 
                                                     'cv2.TM_CCOEFF', 'cv2.TM_CCOEFF_NORMED', 
                                                     'cv2.TM_CCORR', 'cv2.TM_CCORR_NORMED', 
@@ -171,7 +171,8 @@ class Tracker:
         x = pupil[0]
         y = pupil[1]
         d = pupil[2]
-        colourImg = cv2.cvtColor(cv2Image, cv2.COLOR_GRAY2RGB)
+        # colourImg = cv2.cvtColor(cv2Image, cv2.COLOR_GRAY2RGB)
+        colourImg = cv2Image.copy()
         #draw circumference
         cv2.circle(colourImg, (x, y), d//2, (255, 0, 0), 1)
         #draw center
@@ -194,11 +195,13 @@ class Tracker:
         """
         if note != None:
             print(note)
-        resize = cv2.resize(cv2Image, None, fx=scale, fy=scale)
-        cv2.imshow(label, resize)
-        cv2.waitKey(0)
-        if destroy:
-            cv2.destroyAllWindows()
+        plt.imshow(cv2Image)
+        plt.show()
+        # resize = cv2.resize(cv2Image, None, fx=scale, fy=scale)
+        # cv2.imshow(label, resize)
+        # cv2.waitKey(0)
+        # if destroy:
+        #     cv2.destroyAllWindows()
 
     def find_face(self, cv2Image):
         """
@@ -263,7 +266,7 @@ class Tracker:
             method (str): the method to preprocess. Accepted values:
                 {"none", "blur", "threshLow", "threshMid", "threshHigh", 
                 "erosion", "dilation", "opening", "closing", "morphGradient", 
-                "blackHat", "topHat", "sobelx", "xobely", "sobelxy", "canny", 
+                "blackHat", "topHat", "sobelx", "sobely", "sobelxy", "canny", 
                 "laplacian"}
         
         Returns:
@@ -346,20 +349,20 @@ class Tracker:
             methodOutputs ([np.array, dtype=uint8]): the list of all preprocessed images
             methodLabels ([str]): labels for each image in methodOutputs
         """
-        methods = ["blur", "threshLow", "threshMid", "threshHigh", "erosion", "dilation", "opening", "closing", "morphGradient", "blackHat", "topHat", "sobelx", "xobely", "sobelxy", "canny", "laplacian"]
+        methods = ["blur", "threshLow", "threshMid", "threshHigh", "erosion", "dilation", "opening", "closing", "morphGradient", "blackHat", "topHat", "sobelx", "sobely", "sobelxy", "canny", "laplacian"]
         methodLabels = ["none"]
         methodOutputs = [cv2Image.copy()]
         for method1 in methods:
             img = self.preprocess_opencv(cv2Image, method1)
             methodOutputs.append(img)
             methodLabels.append(method1)
-            if multiLevel:
-                for method2 in methods:
-                    out = self.preprocess_opencv(img.copy(), method2)
-                    methodOutputs.append(out)
-                    methodLabels.append(f"{method1}>{method2}")
-        if verbose:
-            self.show(cv2.hconcat(methodOutputs), label="preprocessed", note=" | ".join(methodLabels))
+            # if multiLevel:
+            #     for method2 in methods:
+            #         out = self.preprocess_opencv(img.copy(), method2)
+            #         methodOutputs.append(out)
+            #         methodLabels.append(f"{method1}>{method2}")
+        # if verbose:
+        #     self.show(cv2.hconcat(methodOutputs), label="preprocessed", note=" | ".join(methodLabels))
         return methodOutputs, methodLabels
     
     def generate_template(self, diameter=7):
@@ -409,10 +412,10 @@ class Tracker:
             if detected_circles is not None: 
                 # Convert the circle parameters a, b and r to integers. 
                 detected_circles = np.uint16(np.around(detected_circles))
-                # if verbose:
-                #     for pt in detected_circles[0, :]:
-                #         cv2Image = self.draw_pupil(cv2Image, (pt[0], pt[1], pt[2]*2))
-                #     self.show(cv2Image, label="Hough Transform Detected Circles")
+                if verbose:
+                    for pt in detected_circles[0, :]:
+                        cv2Image = self.draw_pupil(cv2Image, (pt[0], pt[1], pt[2]*2))
+                    self.show(cv2Image, label="Hough Transform Detected Circles")
                 pt = detected_circles[0,0] #TODO is this right
                 return pt[0], pt[1], pt[2]*2
             else:
@@ -431,9 +434,9 @@ class Tracker:
                 top_left = min_loc
             else:
                 top_left = max_loc
-            # if verbose:
-            #     rects = self.draw_all_rectangles(cv2Image, [(top_left[0], top_left[1], w, h)])
-            #     self.show(rects, label="Template Matching")
+            if verbose:
+                rects = self.draw_all_rectangles(cv2Image, [(top_left[0], top_left[1], w, h)])
+                self.show(rects, label="Template Matching")
             return top_left[0] + w//2, top_left[1] + h//2, w
         else:
             print("""

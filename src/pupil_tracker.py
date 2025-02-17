@@ -1,17 +1,20 @@
 import cv2
 import pypupilext as pp
 from matplotlib import pyplot as plt
-from constants import ip, http_port, osc_server_port, osc_client_port
+from constants import ip, http_port, osc_ip, osc_port
 from pythonosc import udp_client
+from imageProcessing import Tracker
     
 class PupilTracker:
     def __init__(self, osc_ip, osc_port):
         self.model = pp.PuReST()
+        self.models = [pp.ElSe(), pp.ExCuSe(), pp.PuRe(), pp.PuReST(), pp.Starburst(), pp.Swirski2D()]
         self.ROIs = {}
         self.pupils = {}
         self.visualiser = []  #TODO
         self.oscClient = udp_client.SimpleUDPClient(osc_ip, osc_port)
         print(f"initialised OSC client to {osc_ip}:{osc_port}")
+        self.tracker = Tracker()
 
     def draw_pupil_and_show(self, cv2Image, pupil): 
         x, y = pupil.center
@@ -51,11 +54,13 @@ class PupilTracker:
             cv2.destroyAllWindows()
             img_crop = img[y:y+h, x:x+w]
             img = img_crop
-        
-        pupil = self.model.run(img)
-        self.draw_pupil_and_show(img, pupil)
+        for model in self.models:
+            pupil = model.run(img)
+            print(model)
+            self.draw_pupil_and_show(img.copy(), pupil)
+        # self.tracker.find_pupil_cv2(img.copy())
         self.pupils[clientID].append(pupil)
         if len(self.pupils[clientID]) > 30:
             self.pupils[clientID] = self.pupils[clientID][:30]
-        # self.send_pupil(pupil, clientID)
+        self.send_pupil(pupil, clientID)
         return self.ROIs[clientID]
